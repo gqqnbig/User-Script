@@ -7,6 +7,7 @@
 // @match        http://blog.csdn.net/*/article/details/*
 // @match        https://blog.csdn.net/*/article/details/*
 // @grant        none
+// @license      LGPL-3.0-only
 // ==/UserScript==
 
 (function() {
