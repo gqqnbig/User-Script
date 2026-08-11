@@ -10,44 +10,56 @@
 // ==/UserScript==
 
 
-aiSummary = document.querySelector("[data-q]:has([data-streaming-container])")
+resource = `
+||vpnfast.github.io*^$document
+||sites.google.com/view/best-china-vpn/*^$document
+||overwallvpn.com/*^$document
+||howandbest.com/*^$document
+||github.com/howandbest*^$document
+||howandbest.github.io/*^$document
+||github.com/topvpntool*^$document
+`;
 
-async function probe(targetUrl, timeoutMs = 5000) {
-	const ac = new AbortController();
-	const timer = setTimeout(() => ac.abort(), timeoutMs);
-	try {
-		await fetch(targetUrl, {
-			method: 'GET',
-			mode: 'no-cors',
-			signal: ac.signal,
-			cache: 'no-store',            // don't read or pollute the HTTP cache
-			credentials: 'omit',          // no cookies -> much smaller request headers
-			referrerPolicy: 'no-referrer',// drops the Referer header
-			//redirect: 'manual',           // don't spend round-trips following 3xx
-			priority: 'low',              // fetchPriority hint (Chromium)
-			headers: {'Range': 'bytes=0-0'}, // ask for 1 byte
-		});
-		return true;   // headers arrived => host is reachable
-	} catch (error) {
-		console.log("1:" + error);
-		return false;
-	} finally {
-		clearTimeout(timer);
-		ac.abort();    // <- the important one: kills the body download
+rules = new Array();
+for (const m of resource.matchAll(/^\|\|(.+)\^\$(document|all)/gm)) {
+	var template = m[1];
+	while (template.endsWith('*') || template.endsWith('/'))
+		template = template.substring(0, template.length - 1);
+
+	i = template.indexOf('/');
+	if (i != -1) {
+		domain = template.substring(0, i);
+		path = template.substring(i);
+	} else {
+		domain = template;
+		path = null;
 	}
+	rules.push([domain, path])
+}
+
+function isLinkBlocked(link) {
+	var linkUrl = new URL(link);
+	for (const rule of rules) {
+		if (linkUrl.hostname.endsWith(rule[0])) {
+			if (rule[1]) {
+				if (linkUrl.pathname.startsWith(rule[1]))
+					return true;
+			} else
+				return true;
+		}
+	}
+	return false;
 }
 
 setTimeout(() => {
 	document.querySelectorAll('#search a[data-ved]').forEach((element) => {
 		//console.log(element.href);
-		probe(element.href).then((res) => {
-			if (!res) {
-				console.log(`remove ${element.href}`);
-				element.closest('[data-rpos]').remove();
-			}
-		}).catch((error) => {
-			// TypeError if the request is blocked or there is no network connection.
-			console.log("2:" + error);
-		});
+		if (!element.href.startsWith('http://') && !element.href.startsWith('https://'))
+			return;
+		if (isLinkBlocked(element.href)) {
+			console.log(`remove ${element.href}`);
+			element.closest('[data-rpos]').remove();
+
+		}
 	});
 }, 1000);
